@@ -1,6 +1,8 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image_picker_initial/constants.dart';
 import 'package:image_picker_initial/widgets/common_button.dart';
@@ -20,15 +22,27 @@ class _SetPhotoScreenState extends State<SetPhotoScreen> {
   File? _image;
 
   Future _pickImage(ImageSource source) async {
-    final image = await ImagePicker().pickImage(source: source);
-    if(image == null) return;
-    File? img = File(image.path);
-    setState(() {
-      _image = img;
+    try {
+      final image = await ImagePicker().pickImage(source: source);
+      if (image == null) return;
+      File? img = File(image.path);
+      img = await _cropImgae(imageFile: img);
+      setState(() {
+        _image = img;
+        Navigator.of(context).pop();
+      });
+    } on PlatformException catch (e) {
+      print(e);
       Navigator.of(context).pop();
-    });
+    }
   }
 
+  Future<File?> _cropImgae({required File imageFile}) async {
+    CroppedFile? croppedImage =
+      await ImageCropper().cropImage(sourcePath: imageFile.path);
+    if(croppedImage == null) return null;
+    return File(croppedImage.path);
+  }
 
   void _showSelectPhotoOptions(BuildContext context) {
     showModalBottomSheet(
@@ -39,17 +53,18 @@ class _SetPhotoScreenState extends State<SetPhotoScreen> {
           top: Radius.circular(25.0),
         ),
       ),
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.28,
-        maxChildSize: 0.4,
-        minChildSize: 0.28,
-        expand: false,
-          builder: (context, scrollController) {
-            return SingleChildScrollView(
-              controller: scrollController,
-              child: SelectPhotoOptionsScreen(onTap: _pickImage,),
-            );
-          }),
+      builder: (context) =>
+          DraggableScrollableSheet(
+              initialChildSize: 0.28,
+              maxChildSize: 0.4,
+              minChildSize: 0.28,
+              expand: false,
+              builder: (context, scrollController) {
+                return SingleChildScrollView(
+                  controller: scrollController,
+                  child: SelectPhotoOptionsScreen(onTap: _pickImage,),
+                );
+              }),
     );
   }
 
@@ -108,11 +123,11 @@ class _SetPhotoScreenState extends State<SetPhotoScreen> {
                           ),
                           child: Center(
                             child: _image == null
-                              ? const Text(
-                                'No image selected',
-                                style: TextStyle(fontSize: 20),
+                                ? const Text(
+                              'No image selected',
+                              style: TextStyle(fontSize: 20),
                             )
-                          : CircleAvatar(
+                                : CircleAvatar(
                               backgroundImage: FileImage(_image!),
                               radius: 180.0,
                             ),
